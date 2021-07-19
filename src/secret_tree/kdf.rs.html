@@ -1,0 +1,309 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/kdf.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>kdf.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../secret_tree/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">//! `libsodium`-compatible generic key derivation.</span>
+
+<span class="kw">use</span> <span class="ident">blake2</span>::{<span class="ident">digest::VariableOutput</span>, <span class="ident">VarBlake2b</span>};
+
+<span class="doccomment">/// Byte length of a [`Seed`](crate::Seed) (32).</span>
+<span class="comment">// Blake2b specification states that it produces outputs in range 1..=64 bytes;</span>
+<span class="comment">// libsodium supports 16..=64 byte outputs. We only use 32-byte outputs; this</span>
+<span class="comment">// is the size of the `ChaChaRng` seed.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEED_LEN</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">32</span>;
+
+<span class="doccomment">/// Byte length of a context variable.</span>
+<span class="comment">// This length is half of what is supported by Blake2b (16 bytes),</span>
+<span class="comment">// but is compatible with the key derivation in `libsodium`. We don’t</span>
+<span class="comment">// need more internally and do not expose context to users.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CONTEXT_LEN</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">8</span>;
+
+<span class="doccomment">/// Byte length of salt in the Blake2b initialization block.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SALT_LEN</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Index</span> {
+    <span class="prelude-val">None</span>,
+    <span class="ident">Number</span>(<span class="ident">u64</span>),
+    <span class="ident">Bytes</span>([<span class="ident">u8</span>; <span class="ident">SALT_LEN</span>]),
+}
+
+<span class="kw">impl</span> <span class="ident">Index</span> {
+    <span class="kw">fn</span> <span class="ident">to_salt</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> [<span class="ident">u8</span>; <span class="number">16</span>] {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">Index::None</span> <span class="op">=</span><span class="op">&gt;</span> [<span class="number">0</span>; <span class="number">16</span>],
+            <span class="ident">Index::Number</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0_u8</span>; <span class="number">16</span>];
+                <span class="ident">bytes</span>[..<span class="number">8</span>].<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">i</span>.<span class="ident">to_le_bytes</span>());
+                <span class="ident">bytes</span>
+            }
+            <span class="ident">Index::Bytes</span>(<span class="ident">bytes</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">bytes</span>,
+        }
+    }
+}
+
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">derive_key</span>(
+    <span class="ident">output</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>],
+    <span class="ident">index</span>: <span class="ident">Index</span>,
+    <span class="ident">context</span>: [<span class="ident">u8</span>; <span class="ident">CONTEXT_LEN</span>],
+    <span class="ident">key</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>; <span class="ident">SEED_LEN</span>],
+) {
+    <span class="macro">assert!</span>(
+        <span class="ident">output</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">16</span> <span class="op">&amp;&amp;</span> <span class="ident">output</span>.<span class="ident">len</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="number">64</span>,
+        <span class="string">&quot;invalid output length, 16..=64 bytes expected&quot;</span>
+    );
+
+    <span class="kw">let</span> <span class="ident">digest</span> <span class="op">=</span> <span class="ident">VarBlake2b::with_params</span>(<span class="ident">key</span>, <span class="kw-2">&amp;</span><span class="ident">index</span>.<span class="ident">to_salt</span>(), <span class="kw-2">&amp;</span><span class="ident">context</span>, <span class="ident">output</span>.<span class="ident">len</span>());
+    <span class="ident">digest</span>.<span class="ident">finalize_variable</span>(<span class="op">|</span><span class="ident">digest_output</span><span class="op">|</span> {
+        <span class="macro">assert_eq!</span>(<span class="ident">digest_output</span>.<span class="ident">len</span>(), <span class="ident">output</span>.<span class="ident">len</span>());
+        <span class="ident">output</span>.<span class="ident">copy_from_slice</span>(<span class="ident">digest_output</span>);
+    });
+}
+
+<span class="attribute">#[<span class="ident">test</span>]</span>
+<span class="kw">fn</span> <span class="ident">sodium_test_vectors_64byte_output</span>() {
+    <span class="kw">use</span> <span class="ident">const_decoder::Decoder::Hex</span>;
+    <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
+
+    <span class="kw">const</span> <span class="ident">CTX</span>: [<span class="ident">u8</span>; <span class="ident">CONTEXT_LEN</span>] <span class="op">=</span> <span class="kw-2">*</span><span class="string">b&quot;KDF test&quot;</span>;
+    <span class="kw">const</span> <span class="ident">EXP</span>: <span class="kw-2">&amp;</span>[[<span class="ident">u8</span>; <span class="number">64</span>]] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;a0c724404728c8bb95e5433eb6a9716171144d61efb23e74b873fcbeda51d807\
+              1b5d70aae12066dfc94ce943f145aa176c055040c3dd73b0a15e36254d450614&quot;</span>,
+        ),
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;02507f144fa9bf19010bf7c70b235b4c2663cc00e074f929602a5e2c10a78075\
+              7d2a3993d06debc378a90efdac196dd841817b977d67b786804f6d3cd585bab5&quot;</span>,
+        ),
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;1944da61ff18dc2028c3578ac85be904931b83860896598f62468f1cb5471c6a\
+              344c945dbc62c9aaf70feb62472d17775ea5db6ed5494c68b7a9a59761f39614&quot;</span>,
+        ),
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;131c0ca1633ed074986215b264f6e0474f362c52b029effc7b0f75977ee89cc9\
+              5d85c3db87f7e399197a25411592beeeb7e5128a74646a460ecd6deb4994b71e&quot;</span>,
+        ),
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;a7023a0bf9be245d078aed26bcde0465ff0cc0961196a5482a0ff4ff8b401597\
+              1e13611f50529cb408f5776b14a90e7c3dd9160a22211db64ff4b5c0b9953680&quot;</span>,
+        ),
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;50f49313f3a05b2e565c13feedb44daa675cafd42c2b2cf9edbce9c949fbfc3f\
+              175dcb738671509ae2ea66fb85e552394d479afa7fa3affe8791744796b94176&quot;</span>,
+        ),
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;13b58d6d69780089293862cd59a1a8a4ef79bb850e3f3ba41fb22446a7dd1dc4\
+              da4667d37b33bf1225dcf8173c4c349a5d911c5bd2db9c5905ed70c11e809e3b&quot;</span>,
+        ),
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;15d44b4b44ffa006eeceeb508c98a970aaa573d65905687b9e15854dec6d49c6\
+              12757e149f78268f727660dedf9abce22a9691feb20a01b0525f4b47a3cf19db&quot;</span>,
+        ),
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;9aebba11c5428ae8225716369e30a48943be39159a899f804e9963ef78822e18\
+             6c21fe95bb0b85e60ef03a6f58d0b9d06e91f79d0ab998450b8810c73ca935b4&quot;</span>,
+        ),
+        <span class="ident">Hex</span>.<span class="ident">decode</span>(
+            <span class="string">b&quot;70f9b83e463fb441e7a4c43275125cd5b19d8e2e4a5d179a39f5db10bbce745a\
+              199104563d308cf8d4c6b27bbb759ded232f5bdb7c367dd632a9677320dfe416&quot;</span>,
+        ),
+    ];
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">key</span> <span class="op">=</span> [<span class="number">0_u8</span>; <span class="ident">SEED_LEN</span>];
+    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">byte</span>) <span class="kw">in</span> <span class="ident">key</span>.<span class="ident">iter_mut</span>().<span class="ident">enumerate</span>() {
+        <span class="kw-2">*</span><span class="ident">byte</span> <span class="op">=</span> <span class="ident">u8::try_from</span>(<span class="ident">i</span>).<span class="ident">unwrap</span>();
+    }
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output</span> <span class="op">=</span> [<span class="number">0_u8</span>; <span class="number">64</span>];
+    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">exp</span>) <span class="kw">in</span> <span class="ident">EXP</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
+        <span class="ident">derive_key</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">output</span>, <span class="ident">Index::Number</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>), <span class="ident">CTX</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>);
+        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="ident">output</span> <span class="kw">as</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>], <span class="ident">exp</span> <span class="kw">as</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]);
+    }
+}
+
+<span class="attribute">#[<span class="ident">test</span>]</span>
+<span class="kw">fn</span> <span class="ident">sodium_test_vectors_varying_len_output</span>() {
+    <span class="kw">use</span> <span class="ident">const_decoder::Decoder::Hex</span>;
+    <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert::TryFrom</span>, <span class="ident">vec</span>};
+
+    <span class="kw">const</span> <span class="ident">CTX</span>: [<span class="ident">u8</span>; <span class="ident">CONTEXT_LEN</span>] <span class="op">=</span> <span class="kw-2">*</span><span class="string">b&quot;KDF test&quot;</span>;
+    <span class="kw">const</span> <span class="ident">EXP</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[<span class="ident">u8</span>]] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+        <span class="kw-2">&amp;</span><span class="ident">Hex</span>.<span class="ident">decode</span>::<span class="op">&lt;</span><span class="number">16</span><span class="op">&gt;</span>(<span class="string">b&quot;a529216624ef9161e4cf117272aafff2&quot;</span>),
+        <span class="kw-2">&amp;</span><span class="ident">Hex</span>.<span class="ident">decode</span>::<span class="op">&lt;</span><span class="number">20</span><span class="op">&gt;</span>(<span class="string">b&quot;268214dc9477a2e3c1022829f934ab992a5a3d84&quot;</span>),
+        <span class="kw-2">&amp;</span><span class="ident">Hex</span>.<span class="ident">decode</span>::<span class="op">&lt;</span><span class="number">24</span><span class="op">&gt;</span>(<span class="string">b&quot;94d678717625e011995c7355f2092267dee47bf0722dd380&quot;</span>),
+        <span class="kw-2">&amp;</span><span class="ident">Hex</span>.<span class="ident">decode</span>::<span class="op">&lt;</span><span class="number">28</span><span class="op">&gt;</span>(<span class="string">b&quot;22c134b9d664e1bdb14dc309a936bf1512b19e4f5175642efb1a0df7&quot;</span>),
+        <span class="kw-2">&amp;</span><span class="ident">Hex</span>.<span class="ident">decode</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span>(<span class="string">b&quot;154b291f11196737f8b7f491e4ca11764e0227d34f94295408a869f007aa8618&quot;</span>),
+        <span class="kw-2">&amp;</span><span class="ident">Hex</span>.<span class="ident">decode</span>::<span class="op">&lt;</span><span class="number">36</span><span class="op">&gt;</span>(
+            <span class="string">b&quot;20790290347b9b0f413a954f40e52e270b3b45417e96c8733161672188701c08dd76cc3d&quot;</span>,
+        ),
+        <span class="kw-2">&amp;</span><span class="ident">Hex</span>.<span class="ident">decode</span>::<span class="op">&lt;</span><span class="number">40</span><span class="op">&gt;</span>(
+            <span class="string">b&quot;66efa5dfe3efd4cc8ca25f2d622c97a20a192d7add965f26b002b7eb81aae4203c0e5f07fd945845&quot;</span>,
+        ),
+    ];
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">key</span> <span class="op">=</span> [<span class="number">0_u8</span>; <span class="ident">SEED_LEN</span>];
+    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">byte</span>) <span class="kw">in</span> <span class="ident">key</span>.<span class="ident">iter_mut</span>().<span class="ident">enumerate</span>() {
+        <span class="kw-2">*</span><span class="ident">byte</span> <span class="op">=</span> <span class="ident">u8::try_from</span>(<span class="ident">i</span>).<span class="ident">unwrap</span>();
+    }
+
+    <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">exp</span> <span class="kw">in</span> <span class="ident">EXP</span>.<span class="ident">iter</span>() {
+        <span class="kw">let</span> <span class="ident">byte_size</span> <span class="op">=</span> <span class="ident">exp</span>.<span class="ident">len</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="ident">byte_size</span>];
+        <span class="ident">derive_key</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">output</span>, <span class="ident">Index::Number</span>(<span class="ident">byte_size</span> <span class="kw">as</span> <span class="ident">u64</span>), <span class="ident">CTX</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">output</span>.<span class="ident">as_slice</span>(), <span class="ident">exp</span>);
+    }
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="secret_tree" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>
